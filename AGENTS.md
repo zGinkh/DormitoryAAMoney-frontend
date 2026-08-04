@@ -42,12 +42,12 @@
 
 ### 3.1 主页面
 
-主页面用于录入账单和计算所需数据。
+主页面用于录入账单数据
 
 需要包含：
 
 - 人员昵称和头像。
-- 费用项目，例如水费、电费、话费(部分人员不在模式下,需要单独配置水费,具体而言,需要配置一共多少桶水,一桶水默认8块钱,以及水点单的时间。
+- 费用项目，例如水费、电费、话费(部分人员不在模式下,需要单独配置水费,具体而言,需要配置一共多少桶水,一桶水默认8块钱,以及水点单的时间)
 - 每个项目的总金额。
 - 计算模式选择。
 - 每个人在每个项目下的权重(所有人权重和为 1)。
@@ -97,7 +97,7 @@
 ```text
 /index           主页面
 /result          结果页面
-/members         人员管理页面
+/poeples         人员管理页面
 /history         历史账单页面
 /history/:id     历史账单详情页面
 ```
@@ -122,14 +122,14 @@ src/
 ```text
 src/views/HomeView.vue
 src/views/ResultView.vue
-src/views/MemberManageView.vue
+src/views/PeopleManageView.vue
 src/views/HistoryView.vue
-src/components/MemberList.vue
+src/components/PeopleList.vue
 src/components/ProjectCostTable.vue
 src/components/ResultTable.vue
 src/utils/calculate.js
 src/utils/storage.js
-src/api/memberApi.js
+src/api/peopleApi.js
 src/api/billApi.js
 ```
 
@@ -139,13 +139,13 @@ src/api/billApi.js
 
 ```text
 bill-history
-member-manage
+poeple-manage
 ```
 
 Vue 组件使用大驼峰：
 
 ```text
-MemberList.vue
+PeopleList.vue
 ProjectCostTable.vue
 ResultTable.vue
 ```
@@ -155,7 +155,7 @@ ResultTable.vue
 ```text
 HomeView.vue
 ResultView.vue
-MemberManageView.vue
+PeopleManageView.vue
 HistoryView.vue
 ```
 
@@ -256,13 +256,4 @@ GET    /bills              获取历史账单列表
 GET    /bills/{id}         获取账单详情
 POST   /bills              保存账单
 DELETE /bills?id={id}      删除账单
-```
-
-建议本地存储 key：
-
-```js
-const STORAGE_KEYS = {
-  MEMBER_AVATARS: 'dorm-aa-member-avatars',
-  LAST_RESULT: 'dorm-aa-last-result'
-}
 ```
