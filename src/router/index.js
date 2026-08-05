@@ -28,6 +28,12 @@ const routes = [
     meta: { section: 'history' },
   },
   {
+    path: '/history/:id',
+    name: 'historyDetail',
+    component: () => import('../views/HistoryDetailView.vue'),
+    meta: { section: 'history' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/poeples',
   },
