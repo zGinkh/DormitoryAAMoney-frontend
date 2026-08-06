@@ -23,6 +23,12 @@ const menuItems = [
     section: 'history',
     icon: 'history',
   },
+  {
+    path: '/guide',
+    label: '使用说明',
+    section: 'guide',
+    icon: 'guide',
+  },
 ]
 
 const currentSection = computed(() => route.meta.section)
@@ -57,10 +63,14 @@ const currentSection = computed(() => route.meta.section)
               <circle cx="9" cy="8" r="3" />
               <path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 5.5a3 3 0 0 1 0 5.5M17 14a5 5 0 0 1 3.5 5" />
             </svg>
-            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <svg v-else-if="item.icon === 'history'" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 8v5l3 2" />
               <circle cx="12" cy="12" r="8" />
               <path d="M5.5 5.5 3 8M18.5 5.5 21 8" />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3.5h9a3 3 0 0 1 3 3V20H8a2 2 0 0 1-2-2V3.5Z" />
+              <path d="M8 20a2 2 0 0 1 0-4h10M9.5 8h5M9.5 11.5h4" />
             </svg>
             <span>{{ item.label }}</span>
           </RouterLink>
@@ -79,6 +89,12 @@ const currentSection = computed(() => route.meta.section)
           <component :is="Component" :key="currentRoute.path" />
         </Transition>
       </RouterView>
+
+      <footer class="app-copyright">
+        <strong>版权声明</strong>
+        <span>本网站由 zGinkh 设计与开发，版权所有。</span>
+        <small>Copyright © 2026 zGinkh. All rights reserved.</small>
+      </footer>
     </section>
   </div>
 </template>
@@ -242,7 +258,45 @@ const currentSection = computed(() => route.meta.section)
 }
 
 .app-workspace {
+  display: flex;
   min-width: 0;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.app-workspace > :deep(main) {
+  flex: 1;
+}
+
+.app-copyright {
+  width: min(1080px, calc(100% - 40px));
+  margin: -44px auto 0;
+  padding: 22px 20px 28px;
+  border-top: 1px solid #bdcad8;
+  color: #718196;
+  text-align: center;
+}
+
+.app-copyright strong,
+.app-copyright span,
+.app-copyright small {
+  display: block;
+}
+
+.app-copyright strong {
+  color: #344d6a;
+  font-size: 14px;
+}
+
+.app-copyright span {
+  margin-top: 7px;
+  font-size: 13px;
+}
+
+.app-copyright small {
+  margin-top: 5px;
+  color: #8997a8;
+  font-size: 11px;
 }
 
 :global(.page-switch-enter-active),
@@ -271,6 +325,12 @@ const currentSection = computed(() => route.meta.section)
     position: sticky;
     height: auto;
     padding: 14px 14px 12px;
+  }
+
+  .app-copyright {
+    width: min(100% - 24px, 1080px);
+    margin-top: -24px;
+    padding-bottom: 22px;
   }
 
   .brand-block {

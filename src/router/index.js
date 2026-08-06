@@ -3,12 +3,18 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    redirect: '/poeples',
+    redirect: '/index',
   },
   {
     path: '/index',
     name: 'home',
     component: () => import('../views/HomeView.vue'),
+    meta: { section: 'bill-entry' },
+  },
+  {
+    path: '/result',
+    name: 'result',
+    component: () => import('../views/ResultView.vue'),
     meta: { section: 'bill-entry' },
   },
   {
@@ -34,8 +40,14 @@ const routes = [
     meta: { section: 'history' },
   },
   {
+    path: '/guide',
+    name: 'guide',
+    component: () => import('../views/UsageGuideView.vue'),
+    meta: { section: 'guide' },
+  },
+  {
     path: '/:pathMatch(.*)*',
-    redirect: '/poeples',
+    redirect: '/index',
   },
 ]
 

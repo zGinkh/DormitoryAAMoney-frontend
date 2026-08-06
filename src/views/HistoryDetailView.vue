@@ -33,6 +33,13 @@ const peopleMap = computed(
   () => new Map(peopleList.value.map((people) => [String(people.id), people])),
 )
 
+const detailPeople = computed(() =>
+  detailList.value.map((detail) => ({
+    id: detail.people_id,
+    name: getPeopleName(detail.people_id),
+  })),
+)
+
 const billPeriod = computed(() => {
   if (!billSummary.value) {
     return `账单 #${billId.value}`
@@ -50,6 +57,55 @@ const calculatedTotal = computed(() =>
 const billTotal = computed(() =>
   billSummary.value ? billSummary.value.total_amount : calculatedTotal.value,
 )
+
+const calculationMode = computed(() => {
+  const summaryMode =
+    billSummary.value?.calculation_mode ?? billSummary.value?.calculationMode
+  const detailMode =
+    detailList.value[0]?.calculation_mode ?? detailList.value[0]?.calculationMode
+  const mode = summaryMode ?? detailMode
+
+  return mode === null || mode === undefined || mode === '' ? null : Number(mode)
+})
+
+const calculationModeLabel = computed(() => {
+  if (calculationMode.value === 0) {
+    return '全员在住，按权重分摊'
+  }
+  if (calculationMode.value === 1) {
+    return '部分人员不在，按天数和权重分摊'
+  }
+  return '暂无记录'
+})
+
+const tableRows = computed(() => {
+  if (!detailList.value.length) {
+    return []
+  }
+
+  const items = [
+    { property: 'water_fee', itemName: '水费' },
+    { property: 'electricity_fee', itemName: '电费' },
+    { property: 'phone_fee', itemName: '话费' },
+  ]
+
+  return [
+    ...items.map((item) => ({
+      ...item,
+      totalAmount: detailList.value.reduce(
+        (total, detail) => total + toMoneyNumber(detail[item.property]),
+        0,
+      ),
+      isTotal: false,
+    })),
+    {
+      property: 'total_amount',
+      itemName: '合计',
+      totalAmount: calculatedTotal.value,
+      isTotal: true,
+    },
+  ]
+})
 
 const getErrorMessage = (error) => error?.message || '账单详情加载失败，请稍后重试'
 
@@ -80,28 +136,14 @@ const getAvatarUrl = (peopleId) => {
   return avatarUrlMap.get(avatarKey) || ''
 }
 
-const getSummaries = ({ columns, data }) =>
-  columns.map((column, index) => {
-    if (index === 0) {
-      return '合计'
-    }
+const getPersonAmount = (row, peopleId) => {
+  const detail = detailList.value.find(
+    (item) => String(item.people_id) === String(peopleId),
+  )
+  return detail ? detail[row.property] : 0
+}
 
-    const amountProperties = [
-      'water_fee',
-      'electricity_fee',
-      'phone_fee',
-      'total_amount',
-    ]
-    if (!amountProperties.includes(column.property)) {
-      return ''
-    }
-
-    const total = data.reduce(
-      (sum, item) => sum + toMoneyNumber(item[column.property]),
-      0,
-    )
-    return formatMoney(total)
-  })
+const getRowClassName = ({ row }) => (row.isTotal ? 'history-total-row' : '')
 
 const loadDetail = async () => {
   if (!validBillId.value) {
@@ -154,7 +196,7 @@ onMounted(loadDetail)
 </script>
 
 <template>
-  <main class="page-shell">
+  <main class="page-shell history-detail-page">
     <header class="page-heading detail-page-heading">
       <div>
         <p class="page-eyebrow">Bill Detail</p>
@@ -164,9 +206,8 @@ onMounted(loadDetail)
       <el-button class="back-button" @click="goBack">返回历史账单</el-button>
     </header>
 
-    <section class="content-card detail-card">
+    <section v-if="loadError && !detailLoading" class="content-card detail-error-card">
       <el-result
-        v-if="loadError && !detailLoading"
         icon="warning"
         title="无法显示账单详情"
         :sub-title="loadError"
@@ -178,22 +219,33 @@ onMounted(loadDetail)
           <el-button @click="goBack">返回列表</el-button>
         </template>
       </el-result>
+    </section>
 
-      <template v-else>
-        <div class="detail-overview">
+    <template v-else>
+      <section class="history-overview">
+        <div class="overview-primary">
+          <span>账单月份</span>
+          <strong>{{ billPeriod }}</strong>
+        </div>
+        <div class="overview-item overview-mode">
+          <span>计算模式</span>
+          <strong>{{ calculationModeLabel }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>参与人数</span>
+          <strong>{{ detailPeople.length }} 人</strong>
+        </div>
+        <div class="overview-total">
+          <span>账单总额</span>
+          <strong>{{ formatMoney(billTotal) }}</strong>
+        </div>
+      </section>
+
+      <section class="content-card history-result-card">
+        <div class="section-header">
           <div>
-            <p class="overview-label">账单月份</p>
-            <h2>{{ billPeriod }}</h2>
-          </div>
-          <div class="overview-stats">
-            <div class="stat-item">
-              <span>参与人数</span>
-              <strong>{{ detailList.length }} 人</strong>
-            </div>
-            <div class="stat-item stat-item--amount">
-              <span>账单总额</span>
-              <strong>{{ formatMoney(billTotal) }}</strong>
-            </div>
+            <h2>费用分摊明细</h2>
+            <p>金额统一保留两位小数</p>
           </div>
         </div>
 
@@ -206,61 +258,72 @@ onMounted(loadDetail)
           show-icon
         />
 
-        <el-table
-          class="history-detail-table"
-          v-loading="detailLoading"
-          :data="detailList"
-          row-key="id"
-          empty-text="该账单暂无费用明细"
-          border
-          stripe
-          show-summary
-          :summary-method="getSummaries"
-        >
-          <el-table-column label="成员" min-width="190">
-            <template #default="{ row }">
-              <div class="member-cell">
-                <el-avatar
-                  class="detail-avatar"
-                  :size="40"
-                  :src="getAvatarUrl(row.people_id)"
-                  :style="getAvatarUrl(row.people_id)
-                    ? undefined
-                    : { backgroundColor: getDefaultAvatarColor(getPeopleName(row.people_id)) }"
-                >
-                  {{ getNameInitial(getPeopleName(row.people_id)) }}
-                </el-avatar>
-                <span>{{ getPeopleName(row.people_id) }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="water_fee" label="水费" min-width="130" align="right">
-            <template #default="{ row }">{{ formatMoney(row.water_fee) }}</template>
-          </el-table-column>
-          <el-table-column
-            prop="electricity_fee"
-            label="电费"
-            min-width="130"
-            align="right"
+        <div class="history-table-scroll">
+          <el-table
+            class="history-result-table"
+            v-loading="detailLoading"
+            :data="tableRows"
+            :row-class-name="getRowClassName"
+            row-key="property"
+            empty-text="该账单暂无费用明细"
+            border
+            table-layout="fixed"
           >
-            <template #default="{ row }">{{ formatMoney(row.electricity_fee) }}</template>
-          </el-table-column>
-          <el-table-column prop="phone_fee" label="话费" min-width="130" align="right">
-            <template #default="{ row }">{{ formatMoney(row.phone_fee) }}</template>
-          </el-table-column>
-          <el-table-column
-            prop="total_amount"
-            label="个人合计"
-            min-width="150"
-            align="right"
-          >
-            <template #default="{ row }">
-              <strong class="detail-total">{{ formatMoney(row.total_amount) }}</strong>
-            </template>
-          </el-table-column>
-        </el-table>
-      </template>
-    </section>
+            <el-table-column
+              prop="itemName"
+              label="费用项目"
+              width="130"
+              :resizable="false"
+            >
+              <template #default="{ row }">
+                <strong class="history-item-name">{{ row.itemName }}</strong>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              v-for="person in detailPeople"
+              :key="person.id"
+              min-width="145"
+              align="right"
+              :resizable="false"
+            >
+              <template #header>
+                <div class="history-person-header">
+                  <el-avatar
+                    class="history-avatar"
+                    :size="34"
+                    :src="getAvatarUrl(person.id)"
+                    :style="getAvatarUrl(person.id)
+                      ? undefined
+                      : { backgroundColor: getDefaultAvatarColor(person.name) }"
+                  >
+                    {{ getNameInitial(person.name) }}
+                  </el-avatar>
+                  <span :title="person.name">{{ person.name }}</span>
+                </div>
+              </template>
+              <template #default="{ row }">
+                <strong v-if="row.isTotal" class="person-total">
+                  {{ formatMoney(getPersonAmount(row, person.id)) }}
+                </strong>
+                <span v-else>{{ formatMoney(getPersonAmount(row, person.id)) }}</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column
+              label="总计"
+              width="150"
+              align="right"
+              :resizable="false"
+            >
+              <template #default="{ row }">
+                <strong class="row-total">{{ formatMoney(row.totalAmount) }}</strong>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </section>
+    </template>
   </main>
 </template>
 
@@ -271,73 +334,76 @@ onMounted(loadDetail)
   background: rgba(255, 255, 255, 0.55);
 }
 
-.detail-card {
+.history-detail-page {
+  width: min(1120px, calc(100% - 40px));
+}
+
+.detail-error-card {
   min-height: 390px;
 }
 
-.detail-overview {
+.history-overview {
+  display: grid;
+  grid-template-columns: 0.8fr 1.55fr 0.7fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.overview-primary,
+.overview-item,
+.overview-total {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 30px;
-  margin-bottom: 22px;
-  padding: 2px 2px 20px;
-  border-bottom: 1px solid #cbd6e2;
-}
-
-.overview-label {
-  margin: 0 0 7px;
-  color: #6d7d91;
-  font-size: 13px;
-}
-
-.detail-overview h2 {
-  margin: 0;
-  color: #203a59;
-  font-size: 26px;
-}
-
-.overview-stats {
-  display: flex;
-  gap: 14px;
-}
-
-.stat-item {
-  display: flex;
-  min-width: 116px;
+  min-width: 0;
+  min-height: 78px;
   flex-direction: column;
-  gap: 5px;
-  padding: 12px 16px;
+  justify-content: center;
+  gap: 7px;
+  padding: 13px 16px;
   border: 1px solid #bdcbda;
-  border-radius: 12px;
-  background: #e5edf5;
+  border-radius: 13px;
+  background: #edf3f8;
+  box-shadow: 0 7px 18px rgba(42, 61, 83, 0.08);
 }
 
-.stat-item span {
-  color: #68798d;
+.history-overview span {
+  color: #718196;
   font-size: 12px;
 }
 
-.stat-item strong {
+.history-overview strong {
+  overflow: hidden;
   color: #294966;
   font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.stat-item--amount {
-  min-width: 145px;
-  border-color: #9fc1de;
-  background: #dcebf7;
+.overview-primary {
+  border-color: #a8c5df;
+  background: #e2edf7;
 }
 
-.stat-item--amount strong {
+.overview-total {
+  border-color: #8fb9dc;
+  background: linear-gradient(145deg, #dfeefa, #d3e5f4);
+}
+
+.overview-total strong {
   color: #225d91;
+  font-size: 19px;
 }
 
 .lookup-alert {
   margin-bottom: 18px;
 }
 
-.history-detail-table.el-table {
+.history-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+.history-result-table.el-table {
   --el-table-bg-color: #f9fbfd;
   --el-table-tr-bg-color: #f9fbfd;
   --el-table-border-color: #9cafc4;
@@ -351,80 +417,97 @@ onMounted(loadDetail)
   box-shadow: 0 5px 16px rgba(45, 66, 92, 0.08);
 }
 
-.history-detail-table.el-table :deep(th.el-table__cell) {
-  height: 52px;
+.history-result-table.el-table :deep(th.el-table__cell) {
+  height: 64px;
   border-right-color: #91a6bd;
   border-bottom: 2px solid #91a6bd;
   background: #c8d9ea;
-  font-weight: 700;
+  cursor: default;
 }
 
-.history-detail-table.el-table :deep(td.el-table__cell) {
-  height: 64px;
+.history-result-table.el-table :deep(td.el-table__cell) {
+  height: 66px;
   border-right-color: #a6b7c9;
   border-bottom-color: #a6b7c9;
   background: #f9fbfd;
 }
 
-.history-detail-table.el-table--striped :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
-  background: #eaf1f8;
+.history-result-table.el-table :deep(.history-total-row td.el-table__cell) {
+  border-top: 2px solid #91a6bd;
+  background: linear-gradient(180deg, #edf4f9 0%, #dfeaf3 100%);
 }
 
-.history-detail-table :deep(.el-table__footer-wrapper td.el-table__cell) {
-  border-color: #91a6bd;
-  color: #203a59;
-  background: #d5e3f0;
-  font-weight: 700;
-}
-
-.member-cell {
+.history-person-header {
   display: flex;
+  min-width: 0;
   align-items: center;
-  gap: 11px;
-  color: #253a53;
-  font-weight: 600;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.detail-avatar {
+.history-person-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-avatar {
   flex: 0 0 auto;
   border: 2px solid #fff;
-  box-shadow: 0 2px 8px rgba(31, 45, 61, 0.16);
+  box-shadow: 0 2px 7px rgba(31, 45, 61, 0.15);
 }
 
-.detail-total {
-  display: inline-block;
-  min-width: 90px;
-  padding: 5px 10px;
-  border-radius: 7px;
-  color: #fff;
-  background: #3478b5;
+.history-item-name {
+  color: #253a53;
   font-size: 15px;
-  font-weight: 800;
+}
+
+.row-total {
+  color: #245b89;
+  font-size: 15px;
+}
+
+.person-total {
+  display: inline-block;
+  padding: 3px 7px;
+  border: 1px solid #b5ccde;
+  border-radius: 6px;
+  color: #285f89;
+  background: linear-gradient(180deg, #f8fbfd 0%, #e7f1f8 100%);
+  font-size: 14px;
   text-align: right;
 }
 
+.history-result-table.el-table :deep(.history-total-row .history-item-name) {
+  color: #1e527e;
+  font-size: 15px;
+}
+
+.history-result-table.el-table :deep(.history-total-row .row-total) {
+  color: #174d7a;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+@media (max-width: 860px) {
+  .history-overview {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
-  .detail-page-heading,
-  .detail-overview {
+  .detail-page-heading {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .detail-page-heading {
     gap: 14px;
   }
 
-  .detail-overview {
-    gap: 16px;
+  .history-detail-page {
+    width: min(100% - 24px, 1120px);
   }
 
-  .overview-stats {
-    width: 100%;
-  }
-
-  .stat-item {
-    min-width: 0;
-    flex: 1;
+  .history-overview {
+    grid-template-columns: 1fr;
   }
 }
 </style>

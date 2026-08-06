@@ -1,0 +1,58 @@
+{
+  "billMonth": "CURRENT",
+  "weightUnit": "PERCENT",
+  "modes": {
+    "0": {
+      "calculationMode": 0,
+      "weightUnit": "PERCENT",
+      "items": [
+        {
+          "key": "water",
+          "name": "水费",
+          "totalAmount": 0,
+          "weights": {}
+        },
+        {
+          "key": "electricity",
+          "name": "电费",
+          "totalAmount": 0,
+          "weights": {}
+        },
+        {
+          "key": "phone",
+          "name": "话费",
+          "totalAmount": 0,
+          "weights": {}
+        }
+      ]
+    },
+    "1": {
+      "calculationMode": 1,
+      "weightUnit": "PERCENT",
+      "waterUnitPrice": 8,
+      "waterOrderDates": [],
+      "electricityPayments": [],
+      "stayDaysByPeopleId": {},
+      "items": [
+        {
+          "key": "water",
+          "name": "水费",
+          "totalAmount": 0,
+          "weights": {}
+        },
+        {
+          "key": "electricity",
+          "name": "电费",
+          "totalAmount": 0,
+          "weights": {}
+        },
+        {
+          "key": "phone",
+          "name": "话费",
+          "totalAmount": 0,
+          "weights": {}
+        }
+      ]
+    }
+  }
+}
